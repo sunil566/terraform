@@ -5,8 +5,8 @@ provider "aws" {
 
 resource "aws_instance" "linux" {
   ami           = "ami-0bb84b8ffd87024d8"  # Specify a valid AMI ID for your region
-  instance_type = "t2.micro"
-  
+  instance_type = "t2.nano"
+
 
   tags = {
     Name = "Demo_server"
