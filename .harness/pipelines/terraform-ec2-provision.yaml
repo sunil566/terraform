@@ -3,6 +3,16 @@ pipeline:
   identifier: Terraform_EC2_Provision
   projectIdentifier: default_project
   orgIdentifier: default
+  description: Plan, approve and apply Terraform EC2 provisioning
+  properties:
+    ci:
+      codebase:
+        connectorRef: Terraform
+        repoName: terraform
+        build:
+          type: branch
+          spec:
+            branch: main
   stages:
     - stage:
         name: Plan
@@ -10,10 +20,14 @@ pipeline:
         type: CI
         spec:
           cloneCodebase: true
-          infrastructure:
-            type: HarnessCloud
-            spec:
-              os: Linux
+          caching:
+            enabled: false
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
           execution:
             steps:
               - step:
@@ -32,18 +46,10 @@ pipeline:
                       terraform validate
                       terraform plan -input=false -out=tfplan
                       aws s3 cp tfplan "s3://suneel-k8s-demo/terraform/plans/<+pipeline.executionId>/tfplan" --region ap-south-1 --sse AES256
-                    environmentVariables:
-                      - name: AWS_ACCESS_KEY_ID
-                        type: Secret
-                        value: <+secrets.getValue("AWS_ACCESS_KEY_ID")>
-                      - name: AWS_SECRET_ACCESS_KEY
-                        type: Secret
-                        value: <+secrets.getValue("AWS")>
-                      - name: AWS_DEFAULT_REGION
-                        type: String
-                        value: ap-south-1
-        when:
-          stageStatus: Success
+                    envVariables:
+                      AWS_ACCESS_KEY_ID: <+secrets.getValue("AWS_ACCESS_KEY_ID")>
+                      AWS_SECRET_ACCESS_KEY: <+secrets.getValue("AWS")>
+                      AWS_DEFAULT_REGION: ap-south-1
     - stage:
         name: Approval
         identifier: Approval
@@ -71,10 +77,14 @@ pipeline:
         type: CI
         spec:
           cloneCodebase: true
-          infrastructure:
-            type: HarnessCloud
-            spec:
-              os: Linux
+          caching:
+            enabled: false
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
           execution:
             steps:
               - step:
@@ -92,15 +102,7 @@ pipeline:
                       aws s3 cp "s3://suneel-k8s-demo/terraform/plans/<+pipeline.executionId>/tfplan" tfplan --region ap-south-1
                       terraform apply -input=false tfplan
                       aws s3 rm "s3://suneel-k8s-demo/terraform/plans/<+pipeline.executionId>/tfplan" --region ap-south-1
-                    environmentVariables:
-                      - name: AWS_ACCESS_KEY_ID
-                        type: Secret
-                        value: <+secrets.getValue("AWS_ACCESS_KEY_ID")>
-                      - name: AWS_SECRET_ACCESS_KEY
-                        type: Secret
-                        value: <+secrets.getValue("AWS")>
-                      - name: AWS_DEFAULT_REGION
-                        type: String
-                        value: ap-south-1
-        when:
-          stageStatus: Success
+                    envVariables:
+                      AWS_ACCESS_KEY_ID: <+secrets.getValue("AWS_ACCESS_KEY_ID")>
+                      AWS_SECRET_ACCESS_KEY: <+secrets.getValue("AWS")>
+                      AWS_DEFAULT_REGION: ap-south-1
