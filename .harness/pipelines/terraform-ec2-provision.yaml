@@ -1,0 +1,106 @@
+pipeline:
+  name: Terraform EC2 Provision
+  identifier: Terraform_EC2_Provision
+  projectIdentifier: default_project
+  orgIdentifier: default
+  stages:
+    - stage:
+        name: Plan
+        identifier: Plan
+        type: CI
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            type: HarnessCloud
+            spec:
+              os: Linux
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Terraform Plan
+                  identifier: Terraform_Plan
+                  spec:
+                    connectorRef: account.harnessImage
+                    image: hashicorp/terraform:1.10.5
+                    shell: Sh
+                    command: |-
+                      set -eu
+                      apk add --no-cache aws-cli
+                      terraform init -input=false
+                      terraform fmt -check -recursive
+                      terraform validate
+                      terraform plan -input=false -out=tfplan
+                      aws s3 cp tfplan "s3://suneel-k8s-demo/terraform/plans/<+pipeline.executionId>/tfplan" --region ap-south-1 --sse AES256
+                    environmentVariables:
+                      - name: AWS_ACCESS_KEY_ID
+                        type: Secret
+                        value: <+secrets.getValue("AWS_ACCESS_KEY_ID")>
+                      - name: AWS_SECRET_ACCESS_KEY
+                        type: Secret
+                        value: <+secrets.getValue("AWS")>
+                      - name: AWS_DEFAULT_REGION
+                        type: String
+                        value: ap-south-1
+        when:
+          stageStatus: Success
+    - stage:
+        name: Approval
+        identifier: Approval
+        type: Approval
+        spec:
+          execution:
+            steps:
+              - step:
+                  type: HarnessApproval
+                  name: Approve Terraform Apply
+                  identifier: Approve_Terraform_Apply
+                  timeout: 1d
+                  spec:
+                    approvalMessage: Review the Terraform plan from the Plan stage before approving the apply.
+                    includePipelineExecutionHistory: true
+                    approvers:
+                      userGroups: <+input>
+                      minimumCount: 1
+                      disallowPipelineExecutor: false
+                    isAutoRejectEnabled: false
+                    approverInputs: []
+    - stage:
+        name: Apply
+        identifier: Apply
+        type: CI
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            type: HarnessCloud
+            spec:
+              os: Linux
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Apply Approved Plan
+                  identifier: Apply_Approved_Plan
+                  spec:
+                    connectorRef: account.harnessImage
+                    image: hashicorp/terraform:1.10.5
+                    shell: Sh
+                    command: |-
+                      set -eu
+                      apk add --no-cache aws-cli
+                      terraform init -input=false
+                      aws s3 cp "s3://suneel-k8s-demo/terraform/plans/<+pipeline.executionId>/tfplan" tfplan --region ap-south-1
+                      terraform apply -input=false tfplan
+                      aws s3 rm "s3://suneel-k8s-demo/terraform/plans/<+pipeline.executionId>/tfplan" --region ap-south-1
+                    environmentVariables:
+                      - name: AWS_ACCESS_KEY_ID
+                        type: Secret
+                        value: <+secrets.getValue("AWS_ACCESS_KEY_ID")>
+                      - name: AWS_SECRET_ACCESS_KEY
+                        type: Secret
+                        value: <+secrets.getValue("AWS")>
+                      - name: AWS_DEFAULT_REGION
+                        type: String
+                        value: ap-south-1
+        when:
+          stageStatus: Success

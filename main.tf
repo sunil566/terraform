@@ -1,10 +1,10 @@
 provider "aws" {
-  region = "us-east-1"  # Specify the desired AWS region
+  region = "ap-south-1"
 }
 
 
 resource "aws_instance" "linux" {
-  ami           = "ami-0bb84b8ffd87024d8"  # Specify a valid AMI ID for your region
+  ami           = "ami-088fb12f8e8397f06"
   instance_type = "t2.nano"
 
 
